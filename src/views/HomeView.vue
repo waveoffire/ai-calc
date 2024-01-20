@@ -82,32 +82,22 @@ const Status = {
   NotOk: "notok",
   SyntaxError: "syntaxerror"
 }
+// 1 to +, 2 to -, 3 to *, 4 to /
+const trainingDataset = {
+  inputs: [
+  ],
+  outputs: [], // corresponding outputs for the input sequences
+  inputSize: 3, // Size of each input sequence
+  outputSize: 15, // Number of possible outputs (adjust based on your needs)
+};
 
 const _trainingDataset = {
   inputs: [
-    [1, '+', 2],
-    [3, '*', 4],
-    [5, '-', 3],
-    [8, '/', 2],
-    [6, '+', 7],
-    [9, '*', 2],
-    [4, '+', 1],
-    [2, '*', 5],
-    [7, '/', 3],
-    [10, '+', 4],
-    // ... add more input sequences ...
-  ],
-  outputs: [3, 12, 2, 4, 13, 18, 5, 10, 2.33, 14], // corresponding outputs for the input sequences
-  inputSize: 3, // Size of each input sequence
-  outputSize: 10, // Number of possible outputs (adjust based on your needs)
-};
-
-const trainingDataset = {
-  inputs:
-    [1, 2, 3, 4, 5, 6, 7, 14,22,11]
+    [3, 11], [3, 4], [5, 6], [7, 14], [22,11],[4,2],[6,1],[9,4],[12,7]
+  ]
     // ... add more input sequences ...
   ,
-  outputs: [2, 4, 6, 8, 10, 12, 14, 28,44,22], // corresponding outputs for the input sequences
+  outputs: [14,7,11,21,33,6,7,13,19], // corresponding outputs for the input sequences
   inputSize: 1, // Size of each input sequence
   outputSize: 1, // Number of possible outputs (adjust based on your needs)
 };
@@ -125,12 +115,45 @@ export default defineComponent({
     };
   },
   methods: {
+   generateRandom(){
+     return Math.floor(Math.random() * 10) + 1;
+   },
+    generateData(){
+     trainingDataset.inputs = []
+      trainingDataset.outputs = []
+      for (let i = 0; i < 100; i++) {
+        const num1 = this.generateRandom();
+        const num2 = this.generateRandom();
+        const operation = Math.floor(Math.random() * 4) + 1; // 1: +, 2: -, 3: *, 4: /
+        let result;
+        switch (operation) {
+          case 1:
+            result = num1 + num2;
+            break;
+          case 2:
+            result = num1 - num2;
+            break;
+          case 3:
+            result = num1 * num2;
+            break;
+          case 4:
+            result = num1 / num2;
+            break;
+          default:
+            result = 0;
+        }
 
+        trainingDataset.inputs.push([num1, operation, num2]);
+        trainingDataset.outputs.push(result);
+      }
+
+      },
     async trainModel() {
+     this.generateData()
       // Create a simple sequential model
       const model = tf.sequential();
-      model.add(tf.layers.dense({ units: 1, inputShape:[1] }));
-      model.add(tf.layers.dense({ units: 64, inputShape:[1] }));
+      model.add(tf.layers.dense({ units: 1, inputShape:[3] }));
+      model.add(tf.layers.dense({ units: 64, inputShape:[3] }));
       model.add(tf.layers.dense({ units: 1, inputShape:[64] }));
       //model.add(tf.layers.dense({ units: trainingDataset.outputSize }));
 
@@ -143,10 +166,10 @@ export default defineComponent({
       // Convert input and output data to tensors
 
 
-      const xs = tf.tensor2d(trainingDataset.inputs, [10 ,1]);
-      const ys = tf.tensor2d(trainingDataset.outputs, [10, 1])
+      const xs = tf.tensor2d(trainingDataset.inputs, [100 ,3]);
+      const ys = tf.tensor2d(trainingDataset.outputs, [100, 1])
 
-      const epochs = 1500
+      const epochs = 600
 
       // Train the model
       await model.fit(xs, ys, {
@@ -160,7 +183,7 @@ export default defineComponent({
         },
       });
 
-      await model.predict(tf.tensor2d([16], [1, 1])).print()
+      await model.predict(tf.tensor2d([3,1,4], [1, 3])).print()
       //console.log(await model.predict(tf.tensor2d([11], [1, 1])).print());
 
       /*
