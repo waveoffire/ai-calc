@@ -15,6 +15,7 @@
       >
         {{ item }}
       </span>
+<button @click="trainModel()">train</button>
     </div>
 <div class="status">
   {{status}}
@@ -82,6 +83,34 @@ const Status = {
   SyntaxError: "syntaxerror"
 }
 
+const _trainingDataset = {
+  inputs: [
+    [1, '+', 2],
+    [3, '*', 4],
+    [5, '-', 3],
+    [8, '/', 2],
+    [6, '+', 7],
+    [9, '*', 2],
+    [4, '+', 1],
+    [2, '*', 5],
+    [7, '/', 3],
+    [10, '+', 4],
+    // ... add more input sequences ...
+  ],
+  outputs: [3, 12, 2, 4, 13, 18, 5, 10, 2.33, 14], // corresponding outputs for the input sequences
+  inputSize: 3, // Size of each input sequence
+  outputSize: 10, // Number of possible outputs (adjust based on your needs)
+};
+
+const trainingDataset = {
+  inputs:
+    [1, 2, 3, 4, 5, 6, 7, 14,22,11]
+    // ... add more input sequences ...
+  ,
+  outputs: [2, 4, 6, 8, 10, 12, 14, 28,44,22], // corresponding outputs for the input sequences
+  inputSize: 1, // Size of each input sequence
+  outputSize: 1, // Number of possible outputs (adjust based on your needs)
+};
 
 export default defineComponent({
   name: "HomeView",
@@ -93,10 +122,73 @@ export default defineComponent({
       newItem: "",
       dragging: {what:"",which:-1},
       status: "",
-      savedmodel:""
     };
   },
   methods: {
+
+    async trainModel() {
+      // Create a simple sequential model
+      const model = tf.sequential();
+      model.add(tf.layers.dense({ units: 1, inputShape:[1] }));
+      model.add(tf.layers.dense({ units: 64, inputShape:[1] }));
+      model.add(tf.layers.dense({ units: 1, inputShape:[64] }));
+      //model.add(tf.layers.dense({ units: trainingDataset.outputSize }));
+
+      // Compile the model
+      await model.compile({
+        optimizer: 'Adam', //sgd
+        loss: 'meanSquaredError'
+      });
+
+      // Convert input and output data to tensors
+
+
+      const xs = tf.tensor2d(trainingDataset.inputs, [10 ,1]);
+      const ys = tf.tensor2d(trainingDataset.outputs, [10, 1])
+
+      const epochs = 1500
+
+      // Train the model
+      await model.fit(xs, ys, {
+        epochs: epochs,
+        shuffle: true,
+        //validationSplit: 0.2,
+        callbacks: {
+          onEpochEnd: (epoch, logs) => {
+            console.log(`Epoch ${epoch + 1}/${epochs}, Loss: ${logs.loss}, Acc: ${logs.acc}`);
+          },
+        },
+      });
+
+      await model.predict(tf.tensor2d([16], [1, 1])).print()
+      //console.log(await model.predict(tf.tensor2d([11], [1, 1])).print());
+
+      /*
+
+      // Save the trained model
+      await model.save('localstorage://my-model-1');
+      const testInputs = [
+        [1, '+', 2],
+        [4, '*', 6],
+        [8, '-', 3],
+        [10, '/', 2],
+        // ... add more test input sequences ...
+      ];
+      const loadedModel = await tf.loadLayersModel('localstorage://my-model-1');
+
+      const testInputTensor = tf.tensor2d(testInputs.map(seq => seq.map(elem => typeof elem === 'string' ? 0 : elem)));
+      const predictions = loadedModel.predict(testInputTensor);
+      const results = predictions.dataSync();
+
+       */
+      //console.log('Predicted results for the test inputs:', results);
+
+    },
+
+    async loadModel() {
+      // Load the pre-trained model
+      this.model = await tf.loadLayersModel('localstorage://my-model-1');
+    },
 
     dragStart(which, ev,what) {
       ev.dataTransfer.setData("Text", this.id);
