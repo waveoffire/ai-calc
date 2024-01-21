@@ -42,14 +42,14 @@ async function trainModel() {
 
     const input = tf.input({ shape: [4] });
 // Pierwsza warstwa gęsta z aktywacją ReLU
-    const dense1 = tf.layers.dense({ units: 512, activation: 'relu',inputShape:[4] }).apply(input);
+    const dense1 = tf.layers.dense({ units: 8, activation: 'relu',inputShape:[4] }).apply(input);
 
 // Batch Normalization po pierwszej warstwie gęstej
-    const batchNorm = tf.layers.batchNormalization({units:8, axis: 1,inputShape:[512], activation: 'relu' }).apply(dense1);
+    const batchNorm = tf.layers.batchNormalization({units:8, axis: 1,inputShape:[8], activation: 'relu' }).apply(dense1);
 
 // Druga warstwa gęsta
-    const dense2 = tf.layers.dense({ inputShape:[8],units: 512, activation: 'relu' }).apply(batchNorm);
-    const dense3 = tf.layers.dense({ inputShape:[512],units: 7}).apply(dense2);
+    const dense2 = tf.layers.dense({ inputShape:[8],units: 256, activation: 'relu' }).apply(batchNorm);
+    const dense3 = tf.layers.dense({ inputShape:[256],units: 7}).apply(dense2);
 
     // Model funkcyjny
     model  = tf.model({ inputs: input, outputs: [dense3] });
@@ -66,24 +66,35 @@ async function trainModel() {
 
     console.log(trainingDataset.outputs.length)
 
-    const xs = tf.tensor2d(trainingDataset.inputs, [5040 ,4]);
-    const ys = tf.tensor3d(trainingDataset.outputs, [5040, 100, 7])
+    //const xs = tf.tensor2d(trainingDataset.inputs);
+    //const ys = tf.tensor3d(trainingDataset.outputs)
 
-    const epochs = 10
+    for(let i = 0;i<trainingDataset.inputs.length;i++){
+        if (trainingDataset.outputs[i].length === 0)
+            continue;
+        const xs = tf.tensor2d([trainingDataset.inputs[i]], [1 ,4]);
+        //console.log(trainingDataset.outputs[i].length,trainingDataset.inputs[i] )
+        console.log([trainingDataset.outputs[i]])
+        const ys = tf.tensor2d([trainingDataset.outputs[i][0]], [ 1,7])
+        const epochs = 10
 
-    // Train the model
-    await model.fit(xs, ys, {
-        epochs: epochs,
-        shuffle: true,
-        batch_size: 512,  // Dostosuj rozmiar batcha
+        // Train the model
+        await model.fit(xs, ys, {
+            epochs: epochs,
+            shuffle: true,
+            batch_size: 512,  // Dostosuj rozmiar batcha
 
-        validationSplit: 0.2,
-        callbacks: {
-            onEpochEnd: (epoch, logs) => {
-                console.log(`Epoch ${epoch + 1}/${epochs}, Loss: ${logs.loss}, Acc: ${logs.acc}`);
+            validationSplit: 0.2,
+            callbacks: {
+                onEpochEnd: (epoch, logs) => {
+                    console.log(`Epoch ${epoch + 1}/${epochs}, Loss: ${logs.loss}, Acc: ${logs.acc}`);
+                },
             },
-        },
-    });
+        });
+
+    }
+
+
     const modelJSON = await model.toJSON();
     const modelData = Buffer.from(JSON.stringify(modelJSON));
 
