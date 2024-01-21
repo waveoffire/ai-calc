@@ -16,6 +16,8 @@
         {{ item }}
       </span>
 <button @click="trainModel()">train</button>
+      <button @click="useModel()">use</button>
+
     </div>
 <div class="status">
   {{status}}
@@ -47,36 +49,7 @@ import '@tensorflow/tfjs-core';
 import '@tensorflow/tfjs-backend-webgl';
 
 import * as tf from '@tensorflow/tfjs'
-
-/*
-let model = tf.sequential();
-model.add(tf.layers.embedding({ inputDim: vocabularySize, outputDim: embeddingDim }));
-model.add(tf.layers.lstm({ units: hiddenUnits }));
-model.add(tf.layers.dense({ units: 1, activation: 'sigmoid' }));
-
-const trainingData = [
-  { input: 'example1', actions: ['swap', 'add'], trueOutcome: true },
-  // ...
-];
-
-const inputTensors = trainingData.map(example => tf.tensor([example.input]));
-const actionTensors = trainingData.map(example => tf.tensor(example.actions));
-const trueOutcomeTensors = tf.tensor(trainingData.map(example => example.trueOutcome));
-
-model.compile({
-  loss: 'binaryCrossentropy',
-  optimizer: 'adam',
-});
-
-model.fit(
-    [inputTensors, actionTensors],
-    trueOutcomeTensors,
-    { epochs: 100, batchSize: 32 },
-    () => console.log('Training complete!')
-);
- */
-
-
+let model;
 const Status = {
   Ok: "ok",
   NotOk: "notok",
@@ -93,7 +66,20 @@ const trainingDataset = {
 
 const _trainingDataset = {
   inputs: [
-    [3, 11], [3, 4], [5, 6], [7, 14], [22,11],[4,2],[6,1],[9,4],[12,7]
+    [
+      [
+        0,
+        1,
+        2,
+        3
+      ],
+      [
+        0,
+        1,
+        2,
+        4
+      ],
+    ]
   ]
     // ... add more input sequences ...
   ,
@@ -112,6 +98,7 @@ export default defineComponent({
       newItem: "",
       dragging: {what:"",which:-1},
       status: "",
+      model:""
     };
   },
   methods: {
@@ -121,10 +108,10 @@ export default defineComponent({
     generateData(){
      trainingDataset.inputs = []
       trainingDataset.outputs = []
-      for (let i = 0; i < 50; i++) {
+      for (let i = 0; i < 1000; i++) {
         const num1 = this.generateRandom();
         const num2 = this.generateRandom();
-        const operation = Math.floor(Math.random() * 2) + 1; // 1: +, 2: -, 3: *, 4: /
+        const operation = Math.floor(Math.random() * 4) + 1; // 1: +, 2: -, 3: *, 4: /
         let result;
         switch (operation) {
           case 1:
@@ -151,22 +138,19 @@ console.log(trainingDataset.inputs,trainingDataset.outputs)
     async trainModel() {
      this.generateData()
       await tf.setBackend('webgl');
-      console.log(tf.getBackend());
-
       const input = tf.input({ shape: [3] });
-
 // Pierwsza warstwa gęsta z aktywacją ReLU
-      const dense1 = tf.layers.dense({ units: 512, activation: 'relu',inputShape:[3] }).apply(input);
+      const dense1 = tf.layers.dense({ units: 1024, activation: 'relu',inputShape:[3] }).apply(input);
 
 // Batch Normalization po pierwszej warstwie gęstej
       const batchNorm = tf.layers.batchNormalization({units:8, axis: 1,inputShape:[512], activation: 'relu' }).apply(dense1);
 
 // Druga warstwa gęsta
-      const dense2 = tf.layers.dense({ inputShape:[8],units: 256, activation: 'relu' }).apply(batchNorm);
-      const dense3 = tf.layers.dense({ inputShape:[256],units: 1}).apply(dense2);
+      const dense2 = tf.layers.dense({ inputShape:[8],units: 512, activation: 'relu' }).apply(batchNorm);
+      const dense3 = tf.layers.dense({ inputShape:[512],units: 1}).apply(dense2);
 
       // Model funkcyjny
-      const model = tf.model({ inputs: input, outputs: [dense3] });
+      model  = tf.model({ inputs: input, outputs: [dense3] });
       model.summary()
       // Compile the model
       await model.compile({
@@ -178,8 +162,8 @@ console.log(trainingDataset.inputs,trainingDataset.outputs)
       // Convert input and output data to tensors
 
 
-      const xs = tf.tensor2d(trainingDataset.inputs, [50 ,3]);
-      const ys = tf.tensor2d(trainingDataset.outputs, [50, 1])
+      const xs = tf.tensor2d(trainingDataset.inputs, [1000 ,3]);
+      const ys = tf.tensor2d(trainingDataset.outputs, [1000, 1])
 
       const epochs = 1000
 
@@ -196,35 +180,20 @@ console.log(trainingDataset.inputs,trainingDataset.outputs)
           },
         },
       });
-      console.log(await model.predict(tf.tensor2d([5,2,3], [1, 3])).dataSync()[0])
-      console.log(Math.round(await model.predict(tf.tensor2d([5,2,3], [1, 3])).dataSync()[0]))
-      //console.log(await model.predict(tf.tensor2d([11], [1, 1])).print());
-
-      /*
-
-      // Save the trained model
       await model.save('localstorage://my-model-1');
-      const testInputs = [
-        [1, '+', 2],
-        [4, '*', 6],
-        [8, '-', 3],
-        [10, '/', 2],
-        // ... add more test input sequences ...
-      ];
-      const loadedModel = await tf.loadLayersModel('localstorage://my-model-1');
 
-      const testInputTensor = tf.tensor2d(testInputs.map(seq => seq.map(elem => typeof elem === 'string' ? 0 : elem)));
-      const predictions = loadedModel.predict(testInputTensor);
-      const results = predictions.dataSync();
-
-       */
-      //console.log('Predicted results for the test inputs:', results);
 
     },
-
+    async useModel(){
+     console.log(await this.loadModel())
+      console.log(await model.predict(tf.tensor2d([6,3,2], [1, 3])).dataSync()[0])
+      console.log(Math.round(await model.predict(tf.tensor2d([6,3,2], [1, 3])).dataSync()[0]))
+    },
     async loadModel() {
       // Load the pre-trained model
-      this.model = await tf.loadLayersModel('localstorage://my-model-1');
+      model  = await tf.loadLayersModel('localstorage://my-model-1');
+      console.log( model)
+      return  model
     },
 
     dragStart(which, ev,what) {
