@@ -116,15 +116,15 @@ export default defineComponent({
   },
   methods: {
    generateRandom(){
-     return Math.floor(Math.random() * 10) + 1;
+     return Math.floor(Math.random() * 9) + 1;
    },
     generateData(){
      trainingDataset.inputs = []
       trainingDataset.outputs = []
-      for (let i = 0; i < 100; i++) {
+      for (let i = 0; i < 50; i++) {
         const num1 = this.generateRandom();
         const num2 = this.generateRandom();
-        const operation = Math.floor(Math.random() * 4) + 1; // 1: +, 2: -, 3: *, 4: /
+        const operation = Math.floor(Math.random() * 2) + 1; // 1: +, 2: -, 3: *, 4: /
         let result;
         switch (operation) {
           case 1:
@@ -146,44 +146,58 @@ export default defineComponent({
         trainingDataset.inputs.push([num1, operation, num2]);
         trainingDataset.outputs.push(result);
       }
-
+console.log(trainingDataset.inputs,trainingDataset.outputs)
       },
     async trainModel() {
      this.generateData()
-      // Create a simple sequential model
-      const model = tf.sequential();
-      model.add(tf.layers.dense({ units: 1, inputShape:[3] }));
-      model.add(tf.layers.dense({ units: 64, inputShape:[3] }));
-      model.add(tf.layers.dense({ units: 1, inputShape:[64] }));
-      //model.add(tf.layers.dense({ units: trainingDataset.outputSize }));
+      await tf.setBackend('webgl');
+      console.log(tf.getBackend());
 
+      const input = tf.input({ shape: [3] });
+
+// Pierwsza warstwa gęsta z aktywacją ReLU
+      const dense1 = tf.layers.dense({ units: 512, activation: 'relu',inputShape:[3] }).apply(input);
+
+// Batch Normalization po pierwszej warstwie gęstej
+      const batchNorm = tf.layers.batchNormalization({units:8, axis: 1,inputShape:[512], activation: 'relu' }).apply(dense1);
+
+// Druga warstwa gęsta
+      const dense2 = tf.layers.dense({ inputShape:[8],units: 256, activation: 'relu' }).apply(batchNorm);
+      const dense3 = tf.layers.dense({ inputShape:[256],units: 1}).apply(dense2);
+
+      // Model funkcyjny
+      const model = tf.model({ inputs: input, outputs: [dense3] });
+      model.summary()
       // Compile the model
       await model.compile({
-        optimizer: 'Adam', //sgd
-        loss: 'meanSquaredError'
+        optimizer: 'adam', //sgd
+        loss: 'meanSquaredError',
+
       });
 
       // Convert input and output data to tensors
 
 
-      const xs = tf.tensor2d(trainingDataset.inputs, [100 ,3]);
-      const ys = tf.tensor2d(trainingDataset.outputs, [100, 1])
+      const xs = tf.tensor2d(trainingDataset.inputs, [50 ,3]);
+      const ys = tf.tensor2d(trainingDataset.outputs, [50, 1])
 
-      const epochs = 600
+      const epochs = 1000
 
       // Train the model
       await model.fit(xs, ys, {
         epochs: epochs,
         shuffle: true,
-        //validationSplit: 0.2,
+        batch_size: 512,  // Dostosuj rozmiar batcha
+
+        validationSplit: 0.2,
         callbacks: {
           onEpochEnd: (epoch, logs) => {
             console.log(`Epoch ${epoch + 1}/${epochs}, Loss: ${logs.loss}, Acc: ${logs.acc}`);
           },
         },
       });
-
-      await model.predict(tf.tensor2d([3,1,4], [1, 3])).print()
+      console.log(await model.predict(tf.tensor2d([5,2,3], [1, 3])).dataSync()[0])
+      console.log(Math.round(await model.predict(tf.tensor2d([5,2,3], [1, 3])).dataSync()[0]))
       //console.log(await model.predict(tf.tensor2d([11], [1, 1])).print());
 
       /*
