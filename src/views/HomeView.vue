@@ -1,43 +1,44 @@
 <template>
   <div id="app">
     <div class="sum">
-      <span
-        class="todo-item"
-        v-for="(item, i) in numbers"
-        :key="i"
-        draggable="true"
-        @dragstart="dragStart(i, $event,'number')"
-        @dragover.prevent
-        @dragenter="dragEnter"
-        @dragleave="dragLeave"
-        @dragend="dragEnd"
-        @drop="dragFinish(i, $event,false)"
-      >
-        {{ item }}
-      </span>
-<button @click="trainModel()">train</button>
-      <button @click="useModel()">use</button>
-
-    </div>
-<div class="status">
-  {{status}}
-</div>
-
-    <div class="signs">
-      <span
-        class="sign"
-        v-for="(item, i) in listofsigns"
-        :key="i"
-        draggable="true"
-        @dragstart="dragStart(i, $event,'sign')"
-        @dragover.prevent
-        @dragenter="dragEnter"
-        @dragleave="dragLeave"
-        @dragend="dragEnd"
-        @drop="dragFinish(i, $event,true)"
-      >
-        {{ item }}
-      </span>
+        Optimizer:
+        <select v-model="optimizerValue" id="optimizer">
+            <option value="sgd">Stochastic Gradient Descent (SGD)</option>
+            <option selected="selected" value="adam">Adam</option>
+            <option value="adagrad">Adagrad</option>
+            <option value="rmpsprop">RMSprop</option>
+            <option value="adadelta">Adadelta</option>
+            <option value="adamax">Adamax</option>
+            <option value="nadam">Nadam</option>
+        </select>
+        <br>
+        Loss:
+        <select v-model="lossValue" id="loss">
+            <option selected value="meanSquaredError">Mean Squared Error (MSE)</option>
+            <option value="meanAbsoluteError">Mean Absolute Error (MAE)</option>
+            <option value="categoricalCrossentropy">Categorical Crossentropy</option>
+            <option value="sparseCategoricalCrossentropy">Sparse Categorical Crossentropy</option>
+            <option value="binaryCrossentropy">Binary Crossentropy</option>
+            <option value="hinge">Hinge Loss</option>
+            <option value="huber">Huber Loss</option>
+            <option value="logcosh">Logcosh Loss</option>
+        </select>
+        <br>
+        Max number:
+        <input @change="check()" v-model="maxNumberValue" type="text"/>
+        <br>
+        Number of generated inputs:
+        <input @change="check()" v-model="inputAmountValue" type="text"/>
+        <br>
+        Number of epochs:
+        <input @change="check()" v-model="epochsValue" type="text"/>
+    <button @click="trainModel()">train</button><br><br>
+        <span v-text="trainStatus"></span><br>
+        <br>
+        <input v-model="equationValue" type="text"/>
+        <button @click="useModel()">Calculate!</button><br><br>
+        Real value: <span v-text="outputReal"></span><br>
+        Rounded value: <span v-text="outputRounded"></span><br><span v-text="offset"></span>
     </div>
   </div>
 </template>
@@ -50,65 +51,42 @@ import '@tensorflow/tfjs-backend-webgl';
 
 import * as tf from '@tensorflow/tfjs'
 let model;
-const Status = {
-  Ok: "ok",
-  NotOk: "notok",
-  SyntaxError: "syntaxerror"
-}
 // 1 to +, 2 to -, 3 to *, 4 to /
 const trainingDataset = {
   inputs: [
   ],
-  outputs: [], // corresponding outputs for the input sequences
-  inputSize: 3, // Size of each input sequence
-  outputSize: 15, // Number of possible outputs (adjust based on your needs)
+  outputs: [],
+  inputSize: 3,
+  outputSize: 15,
 };
 
-const _trainingDataset = {
-  inputs: [
-    [
-      [
-        0,
-        1,
-        2,
-        3
-      ],
-      [
-        0,
-        1,
-        2,
-        4
-      ],
-    ]
-  ]
-    // ... add more input sequences ...
-  ,
-  outputs: [14,7,11,21,33,6,7,13,19], // corresponding outputs for the input sequences
-  inputSize: 1, // Size of each input sequence
-  outputSize: 1, // Number of possible outputs (adjust based on your needs)
-};
 
 export default defineComponent({
   name: "HomeView",
   components: {},
   data() {
     return {
-      numbers: [1, 2, 3, 4],
-      listofsigns: ["(", "+", "-", "*", "/", ")"],
-      newItem: "",
-      dragging: {what:"",which:-1},
-      status: "",
-      model:""
+      optimizerValue: "adam",
+        lossValue: "meanSquaredError",
+        maxNumberValue: 9,
+        inputAmountValue: 1000,
+        epochsValue: 1000,
+        trainStatus: "",
+        equationValue: "",
+        outputReal: "",
+        outputRounded: "",
+        offset: "",
     };
   },
   methods: {
    generateRandom(){
-     return Math.floor(Math.random() * 9) + 1;
+     return Math.floor(Math.random() * this.maxNumberValue) + 1;
    },
-    generateData(){
+    generateData(amount){
+       console.log("amount:" + amount)
      trainingDataset.inputs = []
       trainingDataset.outputs = []
-      for (let i = 0; i < 1000; i++) {
+      for (let i = 0; i < amount; i++) {
         const num1 = this.generateRandom();
         const num2 = this.generateRandom();
         const operation = Math.floor(Math.random() * 4) + 1; // 1: +, 2: -, 3: *, 4: /
@@ -136,7 +114,18 @@ export default defineComponent({
 console.log(trainingDataset.inputs,trainingDataset.outputs)
       },
     async trainModel() {
-     this.generateData()
+       const inputAmount = this.inputAmountValue;
+       const epochs = this.epochsValue;
+       const optimizer = this.optimizerValue;
+       const loss = this.lossValue;
+       console.log(inputAmount)
+        console.log(epochs)
+
+     this.generateData(inputAmount)
+        console.log(trainingDataset.inputs.length)
+        trainingDataset.inputs.forEach((_) => {
+            console.log(_.length)
+        });
       await tf.setBackend('webgl');
       const input = tf.input({ shape: [3] });
 // Pierwsza warstwa gęsta z aktywacją ReLU
@@ -154,19 +143,18 @@ console.log(trainingDataset.inputs,trainingDataset.outputs)
       model.summary()
       // Compile the model
       await model.compile({
-        optimizer: 'adam', //sgd
-        loss: 'meanSquaredError',
+        optimizer: optimizer, //sgd
+        loss: loss,
 
       });
 
       // Convert input and output data to tensors
 
 
-      const xs = tf.tensor2d(trainingDataset.inputs, [1000 ,3]);
-      const ys = tf.tensor2d(trainingDataset.outputs, [1000, 1])
+      const xs = tf.tensor2d(trainingDataset.inputs, [trainingDataset.inputs.length ,3]);
+      const ys = tf.tensor2d(trainingDataset.outputs, [trainingDataset.outputs.length, 1])
 
-      const epochs = 1000
-
+        let stopwatch = new Date();
       // Train the model
       await model.fit(xs, ys, {
         epochs: epochs,
@@ -176,18 +164,47 @@ console.log(trainingDataset.inputs,trainingDataset.outputs)
         validationSplit: 0.2,
         callbacks: {
           onEpochEnd: (epoch, logs) => {
-            console.log(`Epoch ${epoch + 1}/${epochs}, Loss: ${logs.loss}, Acc: ${logs.acc}`);
+              this.trainStatus = `Training... Epoch ${epoch + 1}/${epochs}, Loss: ${logs.loss}`;
           },
         },
       });
+      this.trainStatus = "Trained! Took " + (Math.abs(stopwatch - new Date()) / 1000) + " seconds.";
       await model.save('localstorage://my-model-1');
 
 
     },
+      equationToArray(equation) {
+          const regex = /([\d.]+|[*/+\-])/g;
+
+          const operatorMap = {
+              '+': 1,
+              '-': 2,
+              '*': 3,
+              '/': 4
+          };
+
+          return equation.match(regex).map(item => {
+              if (!isNaN(item)) {
+                  return parseInt(item, 10);
+              } else {
+                  return operatorMap[item];
+              }
+          });
+      },
     async useModel(){
-     console.log(await this.loadModel())
-      console.log(await model.predict(tf.tensor2d([6,3,2], [1, 3])).dataSync()[0])
-      console.log(Math.round(await model.predict(tf.tensor2d([6,3,2], [1, 3])).dataSync()[0]))
+      await this.loadModel()
+        let equation = this.equationToArray(this.equationValue)
+      //console.log(await this.loadModel())
+        console.log(equation)
+        let result = await model.predict(tf.tensor2d(equation, [1, 3])).dataSync()[0]
+
+        this.outputReal = result;
+      this.outputRounded = Math.round(result);
+      let e = eval(this.equationValue);
+      if (e === this.outputRounded)
+          this.offset = "(perfect!)";
+      else
+          this.offset = "(only " + Math.abs(result - e) + " off!)";
     },
     async loadModel() {
       // Load the pre-trained model
@@ -195,87 +212,9 @@ console.log(trainingDataset.inputs,trainingDataset.outputs)
       console.log( model)
       return  model
     },
+      check() {
 
-    dragStart(which, ev,what) {
-      ev.dataTransfer.setData("Text", this.id);
-      ev.dataTransfer.dropEffect = "move";
-      this.dragging.what = what;
-      this.dragging.which = which;
-    },
-    dragEnter(ev) {
-      /*
-      if (ev.clientY > ev.target.height / 2) {
-        ev.target.style.marginBottom = '10px'
-      } else {
-        ev.target.style.marginTop = '10px'
       }
-      */
-    },
-    dragLeave(ev) {
-      /*
-      ev.target.style.marginTop = '2px'
-      ev.target.style.marginBottom = '2px'
-      */
-    },
-    dragEnd(ev) {
-      this.dragging.which = -1;
-    },
-    dragFinish(to, ev,toSign) {
-      if(this.dragging.what=="sign" && !toSign){
-        const copiedItem = Object.assign(this.listofsigns[this.dragging.which]);
-        this.numbers.splice(to, 0, copiedItem);
-      }else if (this.dragging.what=="number" && !toSign){
-        this.moveItem(this.dragging.which, to);
-      }else if (this.dragging.what=="number" && toSign) {
-        if (isNaN(this.numbers[this.dragging.which])) {
-          this.removeItem(this.dragging.which);
-        }
-      }
-      if (ev != null) {
-        ev.target.style.marginTop = "2px";
-        ev.target.style.marginBottom = "2px";
-      }
-      this.status=this.checkNumbers()
-    },
-    removeItem(item) {
-      this.numbers.splice(item, 1);
-    },
-
-    moveItem(from, to) {
-      this.numbers.splice(to, 0, this.numbers.splice(from, 1)[0]);
-    },
-    checkNumbers(){
-      if (this.numbers === undefined)
-        return Status.SyntaxError
-
-      let eq = this.numbers.join("");
-
-      let error = false;
-      eq.split(/[-+*/()]/).forEach((item) => {
-        if (item.length > 1)
-        {
-          console.log(`length:`)
-          error = true;
-        }
-      })
-
-      if (error)
-        return Status.SyntaxError;
-
-      console.log(eq)
-      try {
-        let result = evaluate(eq)
-        console.log(result)
-        if (result === 10){
-          return Status.Ok;
-        }
-        return Status.NotOk;
-      }
-      catch (e) {
-        console.log(e)
-        return Status.SyntaxError;
-      }
-    }
   },
   computed: {
 
@@ -287,67 +226,3 @@ console.log(trainingDataset.inputs,trainingDataset.outputs)
   // watch todos change for localStorage persistence
 });
 </script>
-<style>
-.status{
-  padding-top: 20px;
-}
-.signs {
-  padding-top: 100px;
-}
-.sign {
-  margin: 20px;
-  font-size: 40px;
-}
-body {
-  font-family: "Source Sans Pro", "Arial", sans-serif;
-}
-
-* {
-  box-sizing: border-box;
-}
-
-.todo-list {
-  list-style-type: none;
-  padding: 10px;
-}
-
-.done {
-  text-decoration: line-through;
-  color: #888;
-}
-
-.new-todo {
-  width: 100%;
-}
-
-.trash-drop {
-  border: 2px dashed #ccc !important;
-  text-align: center;
-  color: #e33;
-}
-
-.trash-drop:-moz-drag-over {
-  border: 2px solid red;
-}
-
-.todo-item {
-  border: 1px solid #ccc;
-  border-radius: 2px;
-  padding: 14px 8px;
-  margin-bottom: 3px;
-  background-color: #fff;
-  box-shadow: 1px 2px 2px #ccc;
-  font-size: 22px;
-}
-
-.remove-item {
-  float: right;
-  color: #a45;
-  opacity: 0.5;
-}
-
-.todo-item:hover .remove-item {
-  opacity: 1;
-  font-size: 28px;
-}
-</style>
