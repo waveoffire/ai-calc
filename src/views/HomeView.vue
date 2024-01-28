@@ -1,8 +1,9 @@
 <template>
-  <div id="app">
-    <div class="sum">
-        Optimizer:
-        <select v-model="optimizerValue" id="optimizer">
+    <div class="sum container">
+      <div class="row">
+        <div class="col-6">
+          Optimizer:
+          <select class="form-select" v-model="optimizerValue" id="optimizer">
             <option value="sgd">Stochastic Gradient Descent (SGD)</option>
             <option selected="selected" value="adam">Adam</option>
             <option value="adagrad">Adagrad</option>
@@ -10,10 +11,11 @@
             <option value="adadelta">Adadelta</option>
             <option value="adamax">Adamax</option>
             <option value="nadam">Nadam</option>
-        </select>
-        <br>
-        Loss:
-        <select v-model="lossValue" id="loss">
+          </select>
+        </div>
+        <div class="col-6">
+          Loss:
+          <select class="form-select" v-model="lossValue" id="loss">
             <option selected value="meanSquaredError">Mean Squared Error (MSE)</option>
             <option value="meanAbsoluteError">Mean Absolute Error (MAE)</option>
             <option value="categoricalCrossentropy">Categorical Crossentropy</option>
@@ -22,25 +24,50 @@
             <option value="hinge">Hinge Loss</option>
             <option value="huber">Huber Loss</option>
             <option value="logcosh">Logcosh Loss</option>
-        </select>
-        <br>
-        Max number:
-        <input @change="check()" v-model="maxNumberValue" type="text"/>
-        <br>
-        Number of generated inputs:
-        <input @change="check()" v-model="inputAmountValue" type="text"/>
-        <br>
-        Number of epochs:
-        <input @change="check()" v-model="epochsValue" type="text"/>
-    <button @click="trainModel()">train</button><br><br>
-        <span v-text="trainStatus"></span><br>
-        <br>
-        <input v-model="equationValue" type="text"/>
-        <button @click="useModel()">Calculate!</button><br><br>
-        Real value: <span v-text="outputReal"></span><br>
-        Rounded value: <span v-text="outputRounded"></span><br><span v-text="offset"></span>
-    </div>
+          </select>
+        </div>
+ </div>
+<div class="row">
+  <div class="col-4">
+    Max number:
+    <input class="form-control"  @change="check()" v-model="maxNumberValue" type="number"/>
   </div>
+  <div class="col-4">        Number of generated inputs:
+    <input class="form-control" @change="check()" v-model="inputAmountValue"  type="number"/>
+  </div>
+  <div class="col-4">       Number of epochs:
+    <input class="form-control" @change="check()" v-model="epochsValue"  type="number"/></div>
+
+</div>
+<div class="row">
+  <div class="col-12">    <button class="btn btn-info" @click="trainModel()">Train</button>
+  </div>
+</div>
+<div class="row">
+  <div class="col-12">
+    <span v-text="trainStatus"></span>
+  </div>
+</div>
+      <div class="row">
+        <div class="col-12">
+          Calculate:
+          <input class="form-control" v-model="equationValue" type="text"/>
+          <button class="btn btn-success"  @click="useModel()">Calculate!</button>
+        </div>
+
+      </div>
+<div class="row">
+  <div class="col-12">
+    Real value: <span v-text="outputReal"></span>
+  </div>
+</div>
+      <div class="row">
+        <div class="col-12">
+          Rounded value: <span v-text="outputRounded"></span>
+          <span v-text="offset"></span>
+        </div>
+      </div>
+    </div>
 </template>
 <script>
 import { defineComponent } from "vue";
@@ -216,13 +243,24 @@ console.log(trainingDataset.inputs,trainingDataset.outputs)
 
       }
   },
-  computed: {
 
-    isDragging() {
-      return this.dragging.which > -1;
-    },
-  },
 
   // watch todos change for localStorage persistence
 });
 </script>
+<style lang="scss">
+
+.sum{
+  font-size: 20px;
+  padding-top: 50px;
+div{
+  padding-top: 20px;
+  button{
+    font-size: 30px;
+    padding: 20px;
+  }
+}
+}
+
+
+</style>
